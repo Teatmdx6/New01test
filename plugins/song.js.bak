@@ -1,0 +1,137 @@
+// 🟢 qMessage එක මුලින්ම define කරන්න (cmd එකට ඉහළින් හෝ ඇතුළත)
+const snm = [2025];
+const qMessage = {
+    key: {
+        fromMe: false,
+        participant: "0@s.whatsapp.net",
+        remoteJid: "status@broadcast"
+    },
+    message: {
+        orderMessage: {
+            itemCount: snm[Math.floor(Math.random() * snm.length)],
+            status: 1,
+            surface: 1,
+            message: `✨ 𝐐𝐮𝐞𝐞𝐧 𝐗 𝐌𝐃 𝐖𝐡𝐚𝐭𝐬𝐚𝐩𝐩 𝐁𝐨𝐭 𝐁ｙ -:\n𝐍𝐞𝐭𝐡𝐮 𝐌𝐚𝐱 𝐘𝐭...💗`,
+            orderTitle: "",
+            sellerJid: '94704227534@s.whatsapp.net'
+        }
+    }
+};
+
+// 🟢 Command එක
+cmd({
+    pattern: 'song',
+    desc: 'download songs',
+    react: "🎧",
+    category: 'download',
+    filename: __filename
+}, async (conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply }) => {
+    try {
+        // 1. ප්‍රශ්නයක් තිබේද?
+        if (!q) return reply('*කරුණාකර ගීතයේ නම හෝ YouTube URL එකක් ඇතුළත් කරන්න!*');
+
+        // 2. URL එක හඳුනාගැනීම
+        let videoUrl = q;
+        if (!q.includes('youtube.com') && !q.includes('youtu.be')) {
+            const search = await yts(q);
+            if (!search || !search.videos || search.videos.length === 0) {
+                return reply('*කිසිදු ප්‍රතිඵලයක් හමු නොවීය. වෙනත් වචනයක් උත්සාහ කරන්න.*');
+            }
+            videoUrl = search.videos[0].url;
+        }
+
+        // 3. API එකට ඉල්ලීම
+        const apiUrl = `https://api.princetechn.com/api/download/ytdlv2?apikey=prince&url=${encodeURIComponent(videoUrl)}`;
+        const response = await fetch(apiUrl);
+        const data = await response.json();
+
+        if (!data.success || data.status !== 200) {
+            return reply('*ගීතය ලබා ගැනීමට අපොහොසත් විය. කරුණාකර නැවත උත්සාහ කරන්න.*');
+        }
+
+        const result = data.result;
+        const title = result.title || 'Unknown Title';
+        const thumbnail = result.thumbnail || '';
+        const audioUrl = result.audio_url;
+
+        if (!audioUrl) {
+            return reply('*මෙම ගීතය සඳහා Audio URL එකක් සොයා ගැනීමට නොහැකි විය.*');
+        }
+
+        // 4. Caption එක
+        let desc = `*🧚‍♂️⃝ QUEEN X MD SONG DOWNLOADER 🩷⃟🧚‍♂️*
+
+*|__________________________*
+*|-ℹ️ 𝗧𝗶𝘁𝗹𝗲 :* ${title}
+*|-🎵 𝗔𝘂𝗱𝗶𝗼 𝗤𝘂𝗮𝗹𝗶𝘁𝘆 :* ${result.audio_quality || 'N/A'}
+*|-📹 𝗩𝗶𝗱𝗲𝗼 𝗤𝘂𝗮𝗹𝗶𝘁𝘆 :* ${result.video_quality || 'N/A'}
+*|__________________________*
+
+*🔢 පහත අංකයට පිළිතුරු දෙන්න :*
+
+*1 Audio File🎶*
+*2 Document File📁*
+
+*👨‍💻 Qᴜᴇᴇɴ x ᴍᴅ ʙʏ ɴᴇᴛʜᴜ ᴍᴀx ʏᴛ 👨‍💻*`;
+
+        // 5. Thumbnail + විකල්ප පෙන්වන්න
+        const vv = await conn.sendMessage(from, { 
+            image: { url: thumbnail }, 
+            caption: desc 
+        }, { quoted: mek });
+
+        // 6. පරිශීලක ප්‍රතිචාරය සවන්දීම
+        const responseListener = async (msgUpdate) => {
+            const msg = msgUpdate.messages[0];
+            if (!msg.message || !msg.message.extendedTextMessage) return;
+            const selectedOption = msg.message.extendedTextMessage.text.trim();
+
+            const contextInfo = msg.message.extendedTextMessage.contextInfo;
+            if (contextInfo && contextInfo.stanzaId === vv.key.id) {
+                conn.ev.off('messages.upsert', responseListener);
+
+                switch (selectedOption) {
+                    case '1':
+                        try {
+                            await conn.sendMessage(from, {
+                                audio: { url: audioUrl },
+                                caption: '*👨‍💻 Qᴜᴇᴇɴ x ᴍᴅ ʙʏ ɴᴇᴛʜᴜ ᴍᴀx ʏᴛ 👨‍💻*',
+                                mimetype: 'audio/mpeg'
+                            }, { quoted: qMessage }); // ✅ qMessage define කර ඇත
+                            await conn.sendMessage(from, { react: { text: '✅', key: mek.key } });
+                        } catch (err) {
+                            reply('*Audio එක ලබා ගැනීමේ දෝෂයක් ඇති විය.*');
+                        }
+                        break;
+                    case '2':
+                        try {
+                            await conn.sendMessage(from, {
+                                document: { url: audioUrl },
+                                caption: '*👨‍💻 Qᴜᴇᴇɴ x ᴍᴅ ʙʏ ɴᴇᴛʜᴜ ᴍᴀx ʏᴛ 👨‍💻*',
+                                mimetype: 'audio/mpeg',
+                                fileName: title + ".mp3"
+                            }, { quoted: qMessage }); // ✅ qMessage define කර ඇත
+                            await conn.sendMessage(from, { react: { text: '✅', key: mek.key } });
+                        } catch (err) {
+                            reply('*Document එක ලබා ගැනීමේ දෝෂයක් ඇති විය.*');
+                        }
+                        break;
+                    default:
+                        reply("වලංගු නොවන විකල්පයකි. කරුණාකර 1 හෝ 2 අතරින් තෝරන්න.");
+                }
+            }
+        };
+
+        conn.ev.on('messages.upsert', responseListener);
+
+        // 7. Timeout (විනාඩි 1)
+        setTimeout(() => {
+            conn.ev.off('messages.upsert', responseListener);
+        }, 60000);
+
+    } catch (e) {
+        console.error(e);
+        await conn.sendMessage(from, { react: { text: '❌', key: mek.key } });
+        reply('*යම් දෝෂයක් ඇති විය. කරුණාකර නැවත උත්සාහ කරන්න.*');
+    }
+});
